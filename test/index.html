@@ -1,41 +1,44 @@
 <!DOCTYPE html>
 <html>
   <body>
-    <h2>WebSocket Test</h2>
-
-    <!-- 사용자 입력 필드 -->
-    <input id="msgInput" placeholder="Message" />
-
-    <!-- 메시지 전송 버튼 -->
-    <button onclick="send()">Send</button>
-
-    <!-- 로그 메시지를 보여줄 리스트 -->
+    <h2>드론 상태 수신 로그</h2>
     <ul id="log"></ul>
 
     <script>
-      // WebSocket 객체 생성: Render에 배포된 WebSocket 서버에 연결
       const ws = new WebSocket("wss://websocket-test-o6mq.onrender.com/ws");
 
-      // 연결 성공 시 로그 출력
-      ws.onopen = () => log("✅ Connected");
+      ws.onopen = () => log("✅ WebSocket 연결 성공");
 
-      // 서버로부터 메시지를 수신했을 때 처리
-      ws.onmessage = (e) => log("📩 " + e.data);
+      ws.onmessage = (e) => {
+        if (e.data === "💓 ping") return;
+        log("📩 수신됨: " + e.data);
 
-      // 오류 발생 시 로그 출력
-      ws.onerror = (e) => log("❌ Error");
+        try {
+          const parsed = JSON.parse(e.data);
 
-      // 연결 종료 시 로그 출력
-      ws.onclose = () => log("🚪 Disconnected");
+          // ✅ 드론 상태
+          if (parsed.type === "drone_state" && parsed.payload) {
+            const battery = parsed.payload.battery;
+            const altitude = parsed.payload.altitude;
+            log(`🚁 드론 상태 → 배터리: ${battery}%, 고도: ${altitude}m`);
+          }
 
-      // 메시지 전송 함수 (Send 버튼 클릭 시 호출)
-      function send() {
-        const msg = document.getElementById("msgInput").value; // 입력값 가져오기
-        ws.send(msg);                    // WebSocket을 통해 서버로 전송
-        log("📤 " + msg);                // 전송된 메시지 로그에 표시
-      }
+          // ✅ 파라미터 업데이트 처리
+          else if (parsed.type === "param_update" && parsed.payload) {
+            const params = Object.entries(parsed.payload)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(", ");
+            log(`⚙️ 파라미터 업데이트 → ${params}`);
+          }
 
-      // 메시지를 로그 리스트에 추가하는 함수
+        } catch (err) {
+          log("⚠️ JSON 파싱 실패");
+        }
+      };
+
+      ws.onerror = () => log("❌ WebSocket 오류 발생");
+      ws.onclose = () => log("🚪 WebSocket 연결 종료");
+
       function log(msg) {
         const li = document.createElement("li");
         li.textContent = msg;

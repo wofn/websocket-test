@@ -4,6 +4,9 @@ import json
 import os
 import websockets
 from dotenv import load_dotenv
+import time  # 상단에 추가
+
+last_sent_time = 0  # 상단 또는 함수 외부에 전역 변수로 선언
 
 # ✅ 환경 변수 로드
 load_dotenv()
@@ -13,24 +16,34 @@ rosbridge_host = os.getenv("ROSBRIDGE_HOST", "localhost")
 
 client = None
 websocket = None
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
 # ✅ 메시지 Render 서버로 전송
 async def send_to_render(msg):
     global websocket
-    try:
-        if websocket is not None and websocket.open:
+    if websocket is not None:
+        try:
             await websocket.send(json.dumps(msg))
-        else:
-            print("⚠️ WebSocket이 열려있지 않음. 메시지 전송 실패:", msg)
-    except Exception as e:
-        print("❌ WebSocket 전송 실패:", e)
+        except Exception as e:
+            print("❌ WebSocket 전송 실패:", e)
 
 # ✅ 콜백 함수들
 def on_drone_state(message):
+    global last_sent_time
     payload = json.loads(message.get("data", "{}"))
     print("📡 드론 상태:", payload)
-    asyncio.run_coroutine_threadsafe(send_to_render({"type": "drone_state", "payload": payload}), loop)
+
+    now = time.time()
+    if now - last_sent_time >= 1:  # 최소 1초 간격
+        last_sent_time = now
+        asyncio.run_coroutine_threadsafe(
+            send_to_render({
+                "type": "drone_state",
+                "payload": payload
+            }),
+            loop
+        )
 
 def on_param_update(message):
     payload = json.loads(message.get("data", "{}"))

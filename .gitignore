@@ -1,1 +1,2 @@
 echo "__pycache__/\n*.pyc\n.env" > .gitignore
+node_modules
