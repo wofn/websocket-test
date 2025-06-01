@@ -1,43 +1,61 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+import asyncio
 
-# FastAPI 앱 초기화
 app = FastAPI()
 
-# CORS 설정: 모든 도메인에서 접근 허용 (개발/테스트용)
+# CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],            # 출처 제한 없이 허용
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 연결된 WebSocket 클라이언트를 저장할 리스트
 clients = []
 
-# 루트 경로 접근 시 단순 메시지 반환 (헬스 체크 용도)
 @app.get("/")
 def read_root():
     return HTMLResponse(content="WebSocket server is live")
 
-# WebSocket 연결 핸들러
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     clients.append(websocket)
+    print("✅ Client connected")
 
-    try:
-        while True:
-            try:
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+    async def receive_messages():
+        try:
+            while True:
+                data = await websocket.receive_text()
                 print(f"📨 Received: {data}")
                 for client in clients:
-                    await client.send_text(data)
-            except asyncio.TimeoutError:
-                await websocket.send_text("💓 ping")  # 서버에서 응답 유지 시도
-    except Exception as e:
-        print(f"❌ Client disconnected: {e}")
-    finally:
-        clients.remove(websocket)
+                    if client != websocket:
+                        await client.send_text(data)
+        except Exception as e:
+            print(f"❌ Receive error: {e}")
+    
+    async def send_pings():
+        try:
+            while True:
+                await asyncio.sleep(10)
+                await websocket.send_text("💓 ping")
+        except Exception as e:
+            print(f"❌ Ping error: {e}")
+
+    receive_task = asyncio.create_task(receive_messages())
+    ping_task = asyncio.create_task(send_pings())
+
+    # wait until one fails
+    done, pending = await asyncio.wait(
+        [receive_task, ping_task],
+        return_when=asyncio.FIRST_EXCEPTION
+    )
+
+    for task in pending:
+        task.cancel()
+
+    clients.remove(websocket)
+    print("❎ Client removed")
