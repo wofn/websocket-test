@@ -2,22 +2,40 @@
 <html>
   <body>
     <h2>WebSocket Test</h2>
+
+    <!-- 사용자 입력 필드 -->
     <input id="msgInput" placeholder="Message" />
+
+    <!-- 메시지 전송 버튼 -->
     <button onclick="send()">Send</button>
+
+    <!-- 로그 메시지를 보여줄 리스트 -->
     <ul id="log"></ul>
+
     <script>
+      // WebSocket 객체 생성: Render에 배포된 WebSocket 서버에 연결
       const ws = new WebSocket("wss://websocket-test-o6mq.onrender.com/ws");
+
+      // 연결 성공 시 로그 출력
       ws.onopen = () => log("✅ Connected");
+
+      // 서버로부터 메시지를 수신했을 때 처리
       ws.onmessage = (e) => log("📩 " + e.data);
+
+      // 오류 발생 시 로그 출력
       ws.onerror = (e) => log("❌ Error");
+
+      // 연결 종료 시 로그 출력
       ws.onclose = () => log("🚪 Disconnected");
 
+      // 메시지 전송 함수 (Send 버튼 클릭 시 호출)
       function send() {
-        const msg = document.getElementById("msgInput").value;
-        ws.send(msg);
-        log("📤 " + msg);
+        const msg = document.getElementById("msgInput").value; // 입력값 가져오기
+        ws.send(msg);                    // WebSocket을 통해 서버로 전송
+        log("📤 " + msg);                // 전송된 메시지 로그에 표시
       }
 
+      // 메시지를 로그 리스트에 추가하는 함수
       function log(msg) {
         const li = document.createElement("li");
         li.textContent = msg;
