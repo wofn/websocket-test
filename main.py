@@ -25,23 +25,19 @@ def read_root():
 # WebSocket 연결 핸들러
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    # 클라이언트 연결 수락
     await websocket.accept()
-    clients.append(websocket)  # 연결된 클라이언트 추가
+    clients.append(websocket)
 
     try:
         while True:
-            # 클라이언트로부터 메시지 수신
-            data = await websocket.receive_text()
-            print(f"📨 Received: {data}")  # 서버 콘솔 로그
-
-            # 연결된 클라이언트에게 메시지 전송
-            for client in clients:
-                if client.application_state == websocket.application_state:
-                    await client.send_text(f"[Echo] {data}")
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                print(f"📨 Received: {data}")
+                for client in clients:
+                    await client.send_text(data)
+            except asyncio.TimeoutError:
+                await websocket.send_text("💓 ping")  # 서버에서 응답 유지 시도
     except Exception as e:
-        # 예외 발생 시 로그 출력
         print(f"❌ Client disconnected: {e}")
     finally:
-        # 연결 종료 시 클라이언트 목록에서 제거
         clients.remove(websocket)
