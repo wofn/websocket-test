@@ -26,3 +26,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     await client.send_text(f"[Echo] {msg}")
     except:
         clients.remove(websocket)
+
+@app.get("/")
+async def root():
+    return {"message": "WebSocket server is live"}
